@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Faceless Script Studio</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1c1a; --muted: #6d6a63;
+    --line: #e3e0d8; --accent: #c8321e; --accent-ink: #ffffff; --soft: #f1eee7;
+    --ok: #1f7a4d; --radius: 10px;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141413; --panel: #1d1c1a; --ink: #edeae3; --muted: #9a968d;
+      --line: #32302c; --accent: #ef5a44; --accent-ink: #1a0b08; --soft: #262421;
+      --ok: #5fc793;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 18px 24px; border-bottom: 1px solid var(--line);
+  }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+  header h1 span { color: var(--accent); }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+  .badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 99px;
+    background: var(--soft); color: var(--muted); border: 1px solid var(--line);
+  }
+  main {
+    display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 24px;
+    padding: 24px; max-width: 1400px; margin: 0 auto; align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
+  main > * { min-width: 0; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px;
+  }
+  form.panel { position: sticky; top: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 900px) { form.panel { position: static; } }
+  label { display: grid; grid-template-columns: minmax(0, 1fr); gap: 5px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  input, select, textarea {
+    font: inherit; color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; width: 100%;
+  }
+  textarea { resize: vertical; min-height: 84px; }
+  input:focus, select:focus, textarea:focus, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  button {
+    font: inherit; cursor: pointer; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--ink); padding: 6px 12px;
+  }
+  button:hover { background: var(--soft); }
+  button.primary {
+    background: var(--accent); color: var(--accent-ink); border-color: var(--accent);
+    font-weight: 600; padding: 10px 14px;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button:disabled { opacity: 0.6; cursor: default; }
+  button.small { font-size: 12px; padding: 3px 9px; color: var(--muted); }
+  button.copied { color: var(--ok); border-color: var(--ok); }
+
+  .history { margin-top: 2px; }
+  .history h3 { font-size: 12px; color: var(--muted); margin: 0 0 6px; }
+  .history ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .history li { display: flex; gap: 6px; min-width: 0; }
+  .history .open {
+    flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; font-size: 13px;
+  }
+
+  .empty { text-align: center; color: var(--muted); padding: 70px 20px; }
+  .empty strong { display: block; color: var(--ink); font-size: 17px; margin-bottom: 6px; }
+  .status { display: flex; align-items: center; gap: 12px; padding: 40px 20px; justify-content: center; color: var(--muted); }
+  .spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error {
+    border: 1px solid var(--accent); color: var(--accent);
+    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px;
+  }
+
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .toolbar h2 { font-size: 20px; margin: 0; flex: 1 1 260px; letter-spacing: -0.01em; }
+  .stats { color: var(--muted); font-size: 13px; margin: -6px 0 16px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 18px; overflow-x: auto; }
+  .tabs button {
+    border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    background: none; color: var(--muted); padding: 8px 12px; white-space: nowrap;
+  }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+
+  .card { border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .card h3 { margin: 0 0 2px; font-size: 15px; }
+  .card .meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .num {
+    display: inline-block; min-width: 26px; text-align: center; margin-right: 6px;
+    background: var(--soft); border-radius: 5px; font-size: 12px; padding: 1px 6px; color: var(--muted);
+  }
+  .field { margin-top: 12px; }
+  .field-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .field-head span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  .prompt {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.5; background: var(--soft);
+    border-radius: 7px; padding: 10px 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .narration { white-space: pre-wrap; font-size: 15px; }
+  .script { white-space: pre-wrap; font-size: 16px; line-height: 1.75; max-width: 70ch; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--soft); border-radius: 99px; padding: 2px 10px; font-size: 12px; }
+  ol.titles { margin: 0; padding-left: 20px; }
+  ol.titles li { margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Faceless <span>Script Studio</span></h1>
+  <p>Narration, character sheets and scene prompts for faceless YouTube videos.</p>
+  <span class="badge" id="mode" hidden></span>
+</header>
+
+<main>
+  <form class="panel" id="form">
+    <label>Video idea
+      <textarea name="topic" required minlength="3" maxlength="2000"
+        placeholder="e.g. The lighthouse keepers who vanished from the Flannan Isles in 1900"></textarea>
+    </label>
+    <div class="row">
+      <label>Niche
+        <select name="niche">
+          <option>Mystery &amp; true crime</option><option>History</option>
+          <option>Science &amp; space</option><option>Personal finance</option>
+          <option>Motivation &amp; self-improvement</option><option>Horror stories</option>
+          <option>Kids' stories</option><option>Tech explainers</option>
+          <option>Health &amp; wellness</option><option>Mythology &amp; folklore</option>
+          <option>Luxury &amp; lifestyle</option><option>Facts &amp; top 10s</option>
+        </select>
+      </label>
+      <label>Length
+        <select name="duration_minutes">
+          <option value="1">Short (~1 min)</option><option value="3">3 min</option>
+          <option value="5" selected>5 min</option><option value="8">8 min</option>
+          <option value="12">12 min</option><option value="15">15 min</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label>Tone
+        <select name="tone">
+          <option>Engaging and conversational</option><option>Suspenseful and dramatic</option>
+          <option>Calm documentary</option><option>Energetic and punchy</option>
+          <option>Warm bedtime-story</option><option>Dark and eerie</option>
+          <option>Inspirational</option><option>Dry humour</option>
+        </select>
+      </label>
+      <label>Format
+        <select name="aspect_ratio">
+          <option value="16:9">16:9 long-form</option>
+          <option value="9:16">9:16 Shorts</option>
+          <option value="1:1">1:1 square</option>
+        </select>
+      </label>
+    </div>
+    <label>Visual style
+      <input name="visual_style" list="styles" value="Cinematic photorealistic" maxlength="200">
+      <datalist id="styles">
+        <option>Cinematic photorealistic</option><option>3D animated film look</option>
+        <option>Anime</option><option>Dark graphic novel</option>
+        <option>Watercolour storybook</option><option>Flat vector illustration</option>
+        <option>Minimal stick-figure whiteboard</option><option>Vintage archival photograph</option>
+        <option>Claymation</option><option>Oil painting</option>
+      </datalist>
+    </label>
+    <div class="row">
+      <label>Audience
+        <input name="audience" placeholder="optional" maxlength="200">
+      </label>
+      <label>Language
+        <input name="language" value="English" maxlength="50">
+      </label>
+    </div>
+    <label>Extra instructions
+      <textarea name="notes" maxlength="2000" style="min-height:56px"
+        placeholder="optional: main character, angle, things to avoid..."></textarea>
+    </label>
+    <button class="primary" id="go" type="submit">Generate script &amp; prompts</button>
+    <div class="history" id="history" hidden>
+      <h3>Recent</h3>
+      <ul id="history-list"></ul>
+    </div>
+  </form>
+
+  <section class="panel" id="out" aria-live="polite">
+    <div class="empty">
+      <strong>Describe a video on the left to begin.</strong>
+      You'll get a voiceover script split into scenes, a consistent character
+      sheet, and a ready-to-paste image and video prompt for every scene.
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (sel, root = document) => root.querySelector(sel);
+const form = $('#form'), out = $('#out'), go = $('#go');
+const HISTORY_KEY = 'scriptstudio.history';
+let current = null;   // { data, input }
+let tab = 'scenes';
+
+/* ---------- tiny DOM helper: el('div.card', {attrs}, ...children) ---------- */
+function el(spec, attrs, ...kids) {
+  const [tag, ...cls] = spec.split('.');
+  const node = document.createElement(tag || 'div');
+  if (cls.length) node.className = cls.join(' ');
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === 'onclick') node.addEventListener('click', v);
+    else node.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) if (kid != null && kid !== '') node.append(kid);
+  return node;
+}
+
+function copyButton(getText, label = 'Copy') {
+  const b = el('button.small', { type: 'button' }, label);
+  b.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(typeof getText === 'function' ? getText() : getText);
+    b.textContent = 'Copied'; b.classList.add('copied');
+    setTimeout(() => { b.textContent = label; b.classList.remove('copied'); }, 1400);
+  });
+  return b;
+}
+
+function field(label, text, cls = 'prompt') {
+  if (!text) return null;
+  return el('div.field', null,
+    el('div.field-head', null, el('span', null, label), copyButton(text)),
+    el('div.' + cls, null, text));
+}
+
+/* ---------- derived text ---------- */
+const fullScript = d => d.scenes.map(s => s.narration.trim()).join('\n\n');
+const wordCount = t => (t.trim().match(/\S+/g) || []).length;
+const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+function toMarkdown(d) {
+  const L = [];
+  L.push(`# ${d.titles[0]}`, '', '## Title options', ...d.titles.map(t => `- ${t}`), '');
+  L.push('## Style anchor', d.style_anchor, '');
+  if (d.characters.length) {
+    L.push('## Characters', '');
+    for (const c of d.characters)
+      L.push(`### ${c.name}`, `*${c.role}*`, '', `**Appearance:** ${c.appearance}`, '',
+             '**Reference prompt:**', '```', c.image_prompt, '```', '');
+  }
+  L.push('## Full narration', '', fullScript(d), '', '## Scenes', '');
+  for (const s of d.scenes) {
+    L.push(`### Scene ${s.number}: ${s.title} (${s.duration_seconds}s)`, '', s.narration, '',
+           '**Image prompt:**', '```', s.image_prompt, '```',
+           '**Video prompt:**', '```', s.video_prompt, '```');
+    if (s.on_screen_text) L.push(`**On-screen text:** ${s.on_screen_text}`);
+    L.push('');
+  }
+  L.push('## Thumbnail prompt', '```', d.thumbnail_prompt, '```', '',
+         '## Description', d.description, '', '## Tags', d.tags.join(', '), '');
+  return L.join('\n');
+}
+
+function download(name, text, type) {
+  const a = el('a', { href: URL.createObjectURL(new Blob([text], { type })), download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const slug = t => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'script';
+
+/* ---------- rendering ---------- */
+const TABS = [
+  ['scenes', 'Scenes'], ['script', 'Full script'],
+  ['characters', 'Characters'], ['publish', 'Title & publishing'],
+];
+
+function renderResult() {
+  const d = current.data;
+  const script = fullScript(d);
+  const secs = d.scenes.reduce((n, s) => n + (s.duration_seconds || 0), 0);
+  const name = slug(d.titles[0]);
+
+  const body = el('div');
+  if (tab === 'scenes') {
+    body.append(el('div.toolbar', null,
+      copyButton(() => d.scenes.map(s => s.image_prompt).join('\n\n'), 'Copy all image prompts'),
+      copyButton(() => d.scenes.map(s => s.video_prompt).join('\n\n'), 'Copy all video prompts')));
+    for (const s of d.scenes) {
+      body.append(el('div.card', null,
+        el('h3', null, el('span.num', null, String(s.number)), s.title),
+        el('div.meta', null, `${s.duration_seconds}s`,
+          s.characters.length ? ` · ${s.characters.join(', ')}` : ''),
+        field('Narration', s.narration, 'narration'),
+        field('Image prompt', s.image_prompt),
+        field('Video prompt', s.video_prompt),
+        field('On-screen text', s.on_screen_text, 'narration')));
+    }
+  } else if (tab === 'script') {
+    body.append(
+      el('div.toolbar', null, copyButton(script, 'Copy script for voiceover')),
+      el('div.script', null, script));
+  } else if (tab === 'characters') {
+    body.append(el('div.card', null, field('Style anchor (appended to every image prompt)', d.style_anchor)));
+    if (!d.characters.length)
+      body.append(el('p.stats', null, 'This video has no recurring characters.'));
+    for (const c of d.characters) {
+      body.append(el('div.card', null,
+        el('h3', null, c.name), el('div.meta', null, c.role),
+        field('Appearance (reused word for word in scenes)', c.appearance),
+        field('Reference image prompt', c.image_prompt)));
+    }
+  } else {
+    body.append(
+      el('div.card', null, el('div.field-head', null, el('span', null, 'Title options')),
+        el('ol.titles', null, d.titles.map(t => el('li', null, t)))),
+      el('div.card', null, field('Thumbnail prompt', d.thumbnail_prompt)),
+      el('div.card', null, field('Description', d.description, 'narration')),
+      el('div.card', null,
+        el('div.field-head', null, el('span', null, 'Tags'), copyButton(d.tags.join(', '))),
+        el('div.chips', null, d.tags.map(t => el('span.chip', null, t)))));
+  }
+
+  out.replaceChildren(
+    el('div.toolbar', null,
+      el('h2', null, d.titles[0]),
+      el('button', { type: 'button', onclick: () => download(name + '.md', toMarkdown(d), 'text/markdown') }, 'Export Markdown'),
+      el('button', { type: 'button', onclick: () => download(name + '.json', JSON.stringify(d, null, 2), 'application/json') }, 'Export JSON')),
+    el('p.stats', null,
+      `${d.scenes.length} scenes · ${wordCount(script)} words · about ${fmtTime(secs)} · ${d.characters.length} character${d.characters.length === 1 ? '' : 's'}`),
+    el('div.tabs', { role: 'tablist' }, TABS.map(([id, label]) =>
+      el('button', { type: 'button', role: 'tab', 'aria-selected': String(tab === id),
+        onclick: () => { tab = id; renderResult(); } }, label))),
+    body);
+}
+
+function showStatus(text) {
+  out.replaceChildren(el('div.status', null, el('div.spinner'), el('span', null, text)));
+}
+function showError(message) {
+  const keep = current ? [...out.children] : [];
+  out.replaceChildren(el('div.error', { role: 'alert' }, message), ...keep);
+  if (!current) out.append(el('div.empty', null, 'Nothing generated yet.'));
+}
+
+/* ---------- history (this browser only) ---------- */
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; } catch { return []; }
+}
+function saveHistory(items) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 12))); } catch {}
+}
+function renderHistory() {
+  const items = loadHistory();
+  $('#history').hidden = !items.length;
+  $('#history-list').replaceChildren(...items.map((item, i) => el('li', null,
+    el('button.open', { type: 'button', title: item.data.titles[0],
+      onclick: () => { current = item; tab = 'scenes'; renderResult(); } }, item.data.titles[0]),
+    el('button.small', { type: 'button', 'aria-label': 'Remove from history',
+      onclick: () => { const h = loadHistory(); h.splice(i, 1); saveHistory(h); renderHistory(); } }, '×'))));
+}
+
+/* ---------- generation ---------- */
+function progressText(partial) {
+  const scenes = (partial.match(/"narration"\s*:/g) || []).length;
+  if (scenes) return `Writing scene ${scenes}…`;
+  if (partial.includes('"characters"')) return 'Designing characters…';
+  if (partial.length) return 'Drafting titles and hook…';
+  return 'Planning the video…';
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = Object.fromEntries(new FormData(form));
+  input.duration_minutes = Number(input.duration_minutes);
+  go.disabled = true; go.textContent = 'Generating…';
+  showStatus(progressText(''));
+
+  let partial = '', finished = false;
+  try {
+    const res = await fetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(res.status === 422 ? 'Please check the form fields.' : `Server error (${res.status}).`);
+
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === 'delta') { partial += ev.text; showStatus(progressText(partial)); }
+        else if (ev.type === 'error') throw new Error(ev.message);
+        else if (ev.type === 'done') {
+          finished = true;
+          current = { data: ev.data, input }; tab = 'scenes';
+          saveHistory([current, ...loadHistory()]);
+          renderHistory(); renderResult();
+        }
+      }
+    }
+    if (!finished) throw new Error('The connection closed before the script finished. Try again.');
+  } catch (err) {
+    if (current) renderResult();
+    showError(err.message || 'Something went wrong.');
+  } finally {
+    go.disabled = false; go.innerHTML = 'Generate script &amp; prompts';
+  }
+});
+
+fetch('/api/config').then(r => r.json()).then(c => {
+  if (c.demo) { $('#mode').hidden = false; $('#mode').textContent = 'Demo mode: sample output, no API calls'; }
+}).catch(() => {});
+renderHistory();
+</script>
+</body>
+</html>
