@@ -38,7 +38,8 @@ SCRIPTGEN_DEMO=1 uvicorn app:app --reload
 | `ANTHROPIC_API_KEY` | none | Claude API key (required unless in demo mode) |
 | `SCRIPTGEN_MODEL` | `claude-opus-5-5` | Model used for generation |
 | `SCRIPTGEN_EFFORT` | `medium` | `low`, `medium`, `high`, `xhigh` or `max`: higher is more thorough, slower and costlier |
-| `SCRIPTGEN_DEMO` | unset | Set to `1` for sample output with no API calls |
+| `SCRIPTGEN_DEMO` | unset | `1` for sample output with no API calls; `auto` for sample output only while no API key is set |
+| `SCRIPTGEN_PASSWORD` | unset | When set, the whole app asks for this password (HTTP Basic auth, any username) |
 
 ## How it works
 
@@ -51,5 +52,13 @@ SCRIPTGEN_DEMO=1 uvicorn app:app --reload
 - Requests opt in to server-side refusal fallbacks, so if the primary model's
   safety classifier declines a topic the API retries on a fallback model.
 
-The API key stays on the server. There is no login or rate limiting, so put
-those in front of it before exposing it to the public internet.
+The API key stays on the server. Set `SCRIPTGEN_PASSWORD` before exposing the
+app to the public internet, since anyone who can use it spends your API credit.
+There is no per-user rate limiting.
+
+## Deploying to Vercel
+
+Deploy this folder as the project root; Vercel detects the FastAPI app in
+`app.py`. Set `ANTHROPIC_API_KEY` and `SCRIPTGEN_PASSWORD` in the project's
+environment variables, then redeploy. `vercel.json` raises the function time
+limit so long scripts can finish streaming.

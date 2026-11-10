@@ -4,28 +4,59 @@ Serves a single-page UI and one streaming endpoint that turns a video idea
 into a narration script, a character sheet, and per-scene image/video prompts.
 
 Run:  uvicorn app:app --reload   (needs ANTHROPIC_API_KEY, or SCRIPTGEN_DEMO=1)
+Set SCRIPTGEN_PASSWORD to put the whole app behind a password.
 """
 
 import asyncio
+import base64
 import json
 import os
+import secrets
 from pathlib import Path
 from typing import AsyncIterator, Literal
 
 import anthropic
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 HERE = Path(__file__).parent
 MODEL = os.environ.get("SCRIPTGEN_MODEL", "claude-opus-5-5")
 EFFORT = os.environ.get("SCRIPTGEN_EFFORT", "medium")
-DEMO = os.environ.get("SCRIPTGEN_DEMO") == "1"
+# "1" forces sample output; "auto" uses it only until an API key is configured.
+_demo = os.environ.get("SCRIPTGEN_DEMO", "")
+DEMO = _demo == "1" or (_demo == "auto" and not os.environ.get("ANTHROPIC_API_KEY"))
+PASSWORD = os.environ.get("SCRIPTGEN_PASSWORD", "")
 WORDS_PER_MINUTE = 150
 
 app = FastAPI(title="Faceless Script Generator")
 client = anthropic.AsyncAnthropic() if not DEMO else None
+
+
+@app.middleware("http")
+async def require_password(request: Request, call_next):
+    """HTTP Basic auth on every route when SCRIPTGEN_PASSWORD is set.
+
+    Any username is accepted; only the password is checked.
+    """
+    if PASSWORD:
+        supplied = ""
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() == "basic":
+            try:
+                supplied = base64.b64decode(token).decode().partition(":")[2]
+            except ValueError:
+                pass
+        if not secrets.compare_digest(supplied.encode(), PASSWORD.encode()):
+            return Response(
+                "Password required.",
+                status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Script Studio"'},
+            )
+    return await call_next(request)
+
+
 NO_KEY = "Anthropic API key is missing or invalid. Set ANTHROPIC_API_KEY and restart."
 
 
