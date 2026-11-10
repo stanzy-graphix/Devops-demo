@@ -1,0 +1,78 @@
+{
+  "titles": [
+    "The Lighthouse Keeper Who Vanished Without a Trace",
+    "Three Men Disappeared From This Island. Nobody Knows Why.",
+    "The Flannan Isles Mystery, Explained"
+  ],
+  "hook": "In December of 1900, a supply ship arrived at a remote Scottish lighthouse. The lamp was dark. The door was unlocked. And all three keepers were gone.",
+  "style_anchor": "moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field",
+  "characters": [
+    {
+      "name": "Thomas Marshall",
+      "role": "The lighthouse keeper whose logbook is the last record",
+      "appearance": "a weathered Scottish man in his late twenties with a lean build, short dark brown hair, a thick moustache, tired grey eyes, wearing a heavy navy wool coat with brass buttons and a dark knitted cap",
+      "image_prompt": "Character reference sheet, front and three-quarter views on a plain light grey background: a weathered Scottish man in his late twenties with a lean build, short dark brown hair, a thick moustache, tired grey eyes, wearing a heavy navy wool coat with brass buttons and a dark knitted cap, neutral expression, full body, moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field"
+    },
+    {
+      "name": "Joseph Moore",
+      "role": "The relief keeper who discovers the empty lighthouse",
+      "appearance": "a stocky man in his early thirties with a round face, red-blond beard, pale blue eyes, wearing a brown oilskin jacket, a grey scarf and a flat tweed cap",
+      "image_prompt": "Character reference sheet, front and three-quarter views on a plain light grey background: a stocky man in his early thirties with a round face, red-blond beard, pale blue eyes, wearing a brown oilskin jacket, a grey scarf and a flat tweed cap, neutral expression, full body, moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field"
+    }
+  ],
+  "scenes": [
+    {
+      "number": 1,
+      "title": "The dark lamp",
+      "narration": "In December of 1900, a supply ship arrived at a remote Scottish lighthouse. The lamp was dark. The door was unlocked. And all three keepers were gone.",
+      "duration_seconds": 12,
+      "characters": [],
+      "image_prompt": "A small steamship approaching a rocky island at dusk, a white stone lighthouse on the cliff top with its lamp unlit, heavy grey waves, wide establishing shot from sea level, moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field",
+      "video_prompt": "Slow push in toward the island, waves rolling in the foreground, fog drifting across the cliff, the lighthouse remains dark.",
+      "on_screen_text": "December 26, 1900"
+    },
+    {
+      "number": 2,
+      "title": "The landing",
+      "narration": "Joseph Moore was the first man ashore. He climbed the steep steps from the landing, calling out names that nobody answered.",
+      "duration_seconds": 10,
+      "characters": ["Joseph Moore"],
+      "image_prompt": "A stocky man in his early thirties with a round face, red-blond beard, pale blue eyes, wearing a brown oilskin jacket, a grey scarf and a flat tweed cap, climbing wet stone steps cut into a cliff, looking upward with a worried expression, low angle shot, sea spray behind him, moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field",
+      "video_prompt": "Handheld tracking shot following the man up the steps, wind tugging his scarf, spray bursting over the rocks below.",
+      "on_screen_text": ""
+    },
+    {
+      "number": 3,
+      "title": "The kitchen",
+      "narration": "Inside, the clocks had stopped. The beds were unmade. One chair lay on its side, as if someone had stood up in a hurry.",
+      "duration_seconds": 11,
+      "characters": [],
+      "image_prompt": "Interior of a small 1900s lighthouse kitchen, a wooden table with plates, an overturned chair on the stone floor, a stopped wall clock, cold daylight through a small window, dust in the air, medium wide shot, moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field",
+      "video_prompt": "Slow dolly forward past the table toward the overturned chair, dust motes drifting in the window light.",
+      "on_screen_text": "The clocks had stopped"
+    },
+    {
+      "number": 4,
+      "title": "The logbook",
+      "narration": "Then they found the logbook. The final entries, written by Thomas Marshall, described a storm so violent that grown men wept. But on the mainland, twenty miles away, no storm was ever recorded.",
+      "duration_seconds": 15,
+      "characters": ["Thomas Marshall"],
+      "image_prompt": "A weathered Scottish man in his late twenties with a lean build, short dark brown hair, a thick moustache, tired grey eyes, wearing a heavy navy wool coat with brass buttons and a dark knitted cap, writing in a leather logbook by the light of an oil lamp, rain streaking the window behind him, close-up over the shoulder, moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field",
+      "video_prompt": "Slow push in on the pen moving across the page, lamp flame flickering, rain running down the glass.",
+      "on_screen_text": "\"Storm still raging\""
+    },
+    {
+      "number": 5,
+      "title": "What remains",
+      "narration": "More than a century later, the three men have never been found. If you want more mysteries like this one, subscribe, and tell me in the comments what you think really happened.",
+      "duration_seconds": 12,
+      "characters": [],
+      "image_prompt": "The white stone lighthouse on the cliff at night, its lamp now lit and sweeping a beam through the fog, empty sea below, wide aerial shot, moody cinematic realism, cold blue-grey palette, volumetric fog, soft overcast light, 35mm film grain, shallow depth of field",
+      "video_prompt": "Slow aerial orbit around the lighthouse as the beam rotates through the fog.",
+      "on_screen_text": "Never found"
+    }
+  ],
+  "thumbnail_prompt": "A dark lighthouse on a storm-battered cliff, an open door spilling faint light, three empty oilskin coats hanging on hooks in the foreground, dramatic contrast, moody cinematic realism, cold blue-grey palette, volumetric fog, 35mm film grain",
+  "description": "Three lighthouse keepers vanished from the Flannan Isles in 1900, leaving behind a stopped clock and a logbook nobody can explain.\n\nIn this video we walk through what the relief crew found, what the final entries said, and the theories that have been argued over ever since.",
+  "tags": ["flannan isles", "unsolved mystery", "lighthouse mystery", "true story", "history documentary", "disappearance"]
+}
