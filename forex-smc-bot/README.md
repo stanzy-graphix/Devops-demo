@@ -87,3 +87,16 @@ Limits to know about:
 | `smcbot/risk.py` | Position sizing |
 | `smcbot/backtest.py` | Backtester and statistics |
 | `smcbot/oanda.py`, `smcbot/live.py` | Broker client and live runner |
+
+## MetaTrader 5
+
+`mt5/SMC_Bot.mq5` is the same strategy as a single-file Expert Advisor.
+
+1. In MT5: **File > Open Data Folder**, then copy `SMC_Bot.mq5` into `MQL5/Experts/`.
+2. Open it in MetaEditor (F4) and press **Compile** (F7).
+3. Drag **SMC_Bot** from the Navigator onto the chart of the entry timeframe (e.g. EURUSD M15)
+   and enable **Algo Trading**.
+
+Session hours are in **broker server time**, not UTC (defaults 9-19, which is 07:00-17:00 UTC
+on a GMT+2 server). The EA has not been compiled or run yet; test it in the Strategy Tester
+and on a demo account first.
