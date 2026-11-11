@@ -1,0 +1,28 @@
+instrument = "EUR_USD"
+account_currency = "USD"
+
+[strategy]
+swing_len = 3
+htf = "4h"              # bias timeframe (pandas offset: "1h", "4h", "1D")
+use_htf_bias = true
+require_sweep = true
+sweep_lookback = 30
+require_fvg = true
+entry_level = 0.0       # 0 = edge of the order block, 0.5 = midpoint
+rr = 2.0
+expiry_bars = 24
+sessions = [[7, 17]]    # UTC hours: London open through the NY morning
+
+[risk]
+risk_per_trade = 0.01   # 1% of equity per trade
+max_open = 1
+max_daily_loss = 0.03
+breakeven_at_r = 0.0
+
+[backtest]
+initial_balance = 10000
+spread_pips = 1.0
+
+[live]
+environment = "practice"
+granularity = "M15"
