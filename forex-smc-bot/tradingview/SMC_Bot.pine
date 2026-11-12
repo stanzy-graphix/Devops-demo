@@ -1,0 +1,261 @@
+//@version=6
+// SMC Bot - Smart Money Concepts strategy for TradingView.
+// Model: higher-timeframe bias -> liquidity sweep -> BOS/CHoCH with a fair value gap ->
+// limit order at the order block, stop beyond the block, target at a fixed reward:risk.
+// Decisions are made on closed candles only. Not financial advice.
+strategy("SMC Bot", overlay = true, initial_capital = 10000, pyramiding = 0,
+     max_bars_back = 1000, max_boxes_count = 200, max_labels_count = 300,
+     commission_type = strategy.commission.percent, commission_value = 0.0)
+
+// ---- Inputs ---------------------------------------------------------------------
+swingLen       = input.int(3, "Swing length (bars each side)", minval = 1, group = "Strategy")
+htfTf          = input.timeframe("240", "Higher timeframe for bias", group = "Strategy")
+htfSwingLen    = input.int(3, "HTF swing length", minval = 1, group = "Strategy")
+useHtf         = input.bool(true, "Trade only with HTF structure", group = "Strategy")
+requireSweep   = input.bool(true, "Require liquidity sweep before the break", group = "Strategy")
+sweepLookback  = input.int(30, "Max bars between sweep and break", minval = 1, group = "Strategy")
+reclaimBars    = input.int(3, "Bars allowed to close back past a swept level", minval = 1, group = "Strategy")
+requireFvg     = input.bool(true, "Require fair value gap in the breaking leg", group = "Strategy")
+obLookback     = input.int(5, "Bars to search back for the order block", minval = 1, group = "Strategy")
+entryLevel     = input.float(0.0, "Entry inside block (0 = edge, 0.5 = middle)", minval = 0, maxval = 1, step = 0.1, group = "Strategy")
+rr             = input.float(2.0, "Reward : risk", minval = 0.1, step = 0.1, group = "Strategy")
+slBufferAtr    = input.float(0.1, "Stop buffer beyond the block (ATRs)", minval = 0, step = 0.05, group = "Strategy")
+minStopAtr     = input.float(0.5, "Minimum stop size (ATRs)", minval = 0, step = 0.1, group = "Strategy")
+maxStopAtr     = input.float(3.0, "Maximum stop size (ATRs)", minval = 0, step = 0.1, group = "Strategy")
+atrLen         = input.int(14, "ATR length", minval = 1, group = "Strategy")
+expiryBars     = input.int(24, "Cancel unfilled order after this many bars", minval = 1, group = "Strategy")
+sessStart      = input.int(7, "Session start hour (UTC)", minval = 0, maxval = 23, group = "Strategy")
+sessEnd        = input.int(17, "Session end hour (UTC; start = end: all day)", minval = 0, maxval = 23, group = "Strategy")
+
+riskPct        = input.float(1.0, "Risk per trade, % of equity", minval = 0.01, step = 0.1, group = "Risk")
+maxDailyLoss   = input.float(3.0, "Stop trading after this daily loss, % (0 = off)", minval = 0, step = 0.5, group = "Risk")
+
+showStructure  = input.bool(true, "Show BOS / CHoCH / sweep labels", group = "Display")
+showBlocks     = input.bool(true, "Show order blocks", group = "Display")
+
+if maxDailyLoss > 0
+    strategy.risk.max_intraday_loss(maxDailyLoss, strategy.percent_of_equity)
+
+// ---- Higher-timeframe bias --------------------------------------------------------
+// Direction of the last structure break. Evaluated on the HTF and read one closed HTF
+// bar back, so it never repaints.
+f_trend(int n) =>
+    var int t = 0
+    var float lh = na
+    var bool lhBroken = false
+    var float ll = na
+    var bool llBroken = false
+    float pivH = ta.pivothigh(high, n, n)
+    float pivL = ta.pivotlow(low, n, n)
+    if not na(lh) and not lhBroken and close > lh
+        lhBroken := true
+        t := 1
+    else if not na(ll) and not llBroken and close < ll
+        llBroken := true
+        t := -1
+    if not na(pivH)
+        lh := pivH
+        lhBroken := false
+    if not na(pivL)
+        ll := pivL
+        llBroken := false
+    t
+
+int htfTrend = request.security(syminfo.tickerid, htfTf, f_trend(htfSwingLen)[1], lookahead = barmerge.lookahead_on)
+
+// ---- Entry-timeframe structure ----------------------------------------------------
+float ph = ta.pivothigh(high, swingLen, swingLen)
+float pl = ta.pivotlow(low, swingLen, swingLen)
+float atr = ta.atr(atrLen)
+
+var int   trend          = 0
+var float lastHigh       = na
+var int   lastHighBar    = na
+var bool  lastHighBroken = false
+var float lastLow        = na
+var int   lastLowBar     = na
+var bool  lastLowBroken  = false
+
+int  breakDir = 0
+int  breakBar = na
+bool isChoch  = false
+if not na(lastHigh) and not lastHighBroken and close > lastHigh
+    lastHighBroken := true
+    breakDir := 1
+    breakBar := lastHighBar
+    isChoch := trend == -1
+    trend := 1
+else if not na(lastLow) and not lastLowBroken and close < lastLow
+    lastLowBroken := true
+    breakDir := -1
+    breakBar := lastLowBar
+    isChoch := trend == 1
+    trend := -1
+
+// Liquidity resting at recent swings: price trades through one, then closes back inside.
+var array<float> lqPrice   = array.new<float>()
+var array<int>   lqKind    = array.new<int>()     // +1 swing high, -1 swing low
+var array<int>   lqPierced = array.new<int>()     // bar it was first traded through, or -1
+var int lastSweepUp = -1000000
+var int lastSweepDn = -1000000
+bool sweepUp = false
+bool sweepDn = false
+if lqPrice.size() > 0
+    for k = lqPrice.size() - 1 to 0
+        float p = lqPrice.get(k)
+        int kind = lqKind.get(k)
+        int a = lqPierced.get(k)
+        bool pierced = kind == -1 ? low < p : high > p
+        if a < 0 and pierced
+            a := bar_index
+            lqPierced.set(k, a)
+        bool done = false
+        if a >= 0
+            bool reclaimed = kind == -1 ? close > p : close < p
+            if reclaimed
+                done := true
+                if kind == -1
+                    sweepUp := true
+                else
+                    sweepDn := true
+            else if bar_index - a + 1 >= reclaimBars
+                done := true
+        if done
+            lqPrice.remove(k)
+            lqKind.remove(k)
+            lqPierced.remove(k)
+while lqPrice.size() > 10
+    lqPrice.shift()
+    lqKind.shift()
+    lqPierced.shift()
+if sweepUp
+    lastSweepUp := bar_index
+if sweepDn
+    lastSweepDn := bar_index
+
+if not na(ph)
+    lastHigh := ph
+    lastHighBar := bar_index - swingLen
+    lastHighBroken := false
+    lqPrice.push(ph)
+    lqKind.push(1)
+    lqPierced.push(-1)
+if not na(pl)
+    lastLow := pl
+    lastLowBar := bar_index - swingLen
+    lastLowBroken := false
+    lqPrice.push(pl)
+    lqKind.push(-1)
+    lqPierced.push(-1)
+
+// ---- Entry model ------------------------------------------------------------------
+int hr = hour(time, "UTC")
+bool inSession = sessStart == sessEnd ? true : sessStart < sessEnd ? (hr >= sessStart and hr < sessEnd) : (hr >= sessStart or hr < sessEnd)
+
+float sigEntry = na
+float sigSl    = na
+float sigTp    = na
+int   sigObOff = na
+float sigObTop = na
+float sigObBot = na
+
+if breakDir != 0
+    int d = breakDir
+    int startOff = bar_index - breakBar
+    int lastSweep = d == 1 ? lastSweepUp : lastSweepDn
+    bool ok = startOff + obLookback + 2 < 900
+    ok := ok and (not useHtf or htfTrend == d)
+    ok := ok and inSession
+    ok := ok and (not requireSweep or bar_index - lastSweep <= sweepLookback)
+    if ok
+        // Origin of the leg that broke structure: the extreme since the broken swing.
+        int originOff = startOff
+        for ofs = startOff to 0
+            if d == 1 ? low[ofs] < low[originOff] : high[ofs] > high[originOff]
+                originOff := ofs
+        float legLo = low[originOff]
+        float legHi = high[originOff]
+        for ofs = originOff to 0
+            legHi := math.max(legHi, high[ofs])
+            legLo := math.min(legLo, low[ofs])
+        // Displacement: a fair value gap (3-bar imbalance) inside the leg.
+        bool fvg = false
+        if originOff >= 1
+            for ofs = originOff - 1 to 0
+                if d == 1 ? low[ofs] > high[ofs + 2] : high[ofs] < low[ofs + 2]
+                    fvg := true
+                    break
+        // Order block: last opposite-coloured candle before the leg.
+        int obOff = -1
+        for j = 0 to obLookback - 1
+            int ofs = originOff + j
+            if d == 1 ? close[ofs] < open[ofs] : close[ofs] > open[ofs]
+                obOff := ofs
+                break
+        if (fvg or not requireFvg) and obOff >= 0
+            float top = high[obOff]
+            float bot = low[obOff]
+            for ofs = obOff to originOff
+                if d == 1
+                    bot := math.min(bot, low[ofs])
+                else
+                    top := math.max(top, high[ofs])
+            float e = d == 1 ? top - entryLevel * (top - bot) : bot + entryLevel * (top - bot)
+            float s = d == 1 ? bot - slBufferAtr * atr : top + slBufferAtr * atr
+            float risk = math.abs(e - s)
+            float mid = (legLo + legHi) / 2
+            bool valid = (e - mid) * d <= 0                 // longs in discount, shorts in premium
+            valid := valid and (close - e) * d > 0          // price not already back in the block
+            valid := valid and risk >= minStopAtr * atr and risk <= maxStopAtr * atr
+            if valid
+                sigEntry := e
+                sigSl := s
+                sigTp := e + d * rr * risk
+                sigObOff := obOff
+                sigObTop := top
+                sigObBot := bot
+
+// ---- Orders -----------------------------------------------------------------------
+var int pendingBar = na
+var int pendingDir = 0
+
+if strategy.position_size != 0
+    pendingBar := na
+    pendingDir := 0
+
+// Cancel an unfilled order when it expires or structure breaks against it.
+if not na(pendingBar) and strategy.position_size == 0
+    if bar_index - pendingBar >= expiryBars or breakDir == -pendingDir
+        strategy.cancel_all()
+        pendingBar := na
+        pendingDir := 0
+
+if not na(sigEntry) and strategy.position_size == 0 and na(pendingBar)
+    float riskMoney = strategy.equity * riskPct / 100
+    float qty = riskMoney / (math.abs(sigEntry - sigSl) * syminfo.pointvalue)
+    string side = breakDir == 1 ? "buy" : "sell"
+    if breakDir == 1
+        strategy.entry("Long", strategy.long, qty = qty, limit = sigEntry)
+        strategy.exit("Long exit", "Long", stop = sigSl, limit = sigTp)
+    else
+        strategy.entry("Short", strategy.short, qty = qty, limit = sigEntry)
+        strategy.exit("Short exit", "Short", stop = sigSl, limit = sigTp)
+    pendingBar := bar_index
+    pendingDir := breakDir
+    // JSON alert for webhooks: create an alert on this strategy with "alert() function calls only".
+    alert('{"symbol":"' + syminfo.ticker + '","side":"' + side + '","type":"limit","entry":' + str.tostring(sigEntry, format.mintick)
+         + ',"sl":' + str.tostring(sigSl, format.mintick) + ',"tp":' + str.tostring(sigTp, format.mintick)
+         + ',"risk_pct":' + str.tostring(riskPct) + '}', alert.freq_once_per_bar_close)
+    if showBlocks
+        box.new(bar_index - sigObOff, sigObTop, bar_index + expiryBars, sigObBot,
+             border_color = breakDir == 1 ? color.teal : color.red,
+             bgcolor = color.new(breakDir == 1 ? color.teal : color.red, 85))
+
+// ---- Display ----------------------------------------------------------------------
+if showStructure and breakDir != 0
+    label.new(bar_index, breakDir == 1 ? high : low, isChoch ? "CHoCH" : "BOS",
+         style = breakDir == 1 ? label.style_label_down : label.style_label_up,
+         color = color.new(breakDir == 1 ? color.teal : color.red, 20), textcolor = color.white, size = size.tiny)
+plotshape(showStructure and sweepUp, "Sell-side sweep", shape.triangleup, location.belowbar, color.teal, size = size.tiny)
+plotshape(showStructure and sweepDn, "Buy-side sweep", shape.triangledown, location.abovebar, color.red, size = size.tiny)
+bgcolor(useHtf ? color.new(htfTrend == 1 ? color.teal : htfTrend == -1 ? color.red : color.gray, 95) : na, title = "HTF bias")

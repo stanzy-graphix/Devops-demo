@@ -100,3 +100,19 @@ Limits to know about:
 Session hours are in **broker server time**, not UTC (defaults 9-19, which is 07:00-17:00 UTC
 on a GMT+2 server). The EA has not been compiled or run yet; test it in the Strategy Tester
 and on a demo account first.
+
+## TradingView
+
+`tradingview/SMC_Bot.pine` is the same strategy in Pine Script v6.
+
+1. Open a chart on the entry timeframe (e.g. EURUSD 15m), open the **Pine Editor**, paste the
+   file, then **Save** and **Add to chart**.
+2. The **Strategy Tester** tab shows the backtest; set the spread/commission in the strategy's
+   Properties to match your broker.
+3. For automation, create an alert on the strategy with **alert() function calls only**. Each
+   signal sends JSON (`symbol, side, entry, sl, tp, risk_pct`) that a webhook can forward to a
+   broker. Webhook alerts need a paid TradingView plan, and TradingView cannot send orders to
+   MT5 by itself.
+
+Position size assumes the pair's quote currency is your account currency. The script has not
+been compiled or run on TradingView yet.
